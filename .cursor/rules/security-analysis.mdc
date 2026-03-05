@@ -1,0 +1,18 @@
+---
+description: Always-apply security analysis lens — OWASP Top 10:2025 checklist for every feature and code change.
+alwaysApply: true
+---
+
+# Security Analysis
+
+Security is a continuous lens, not a phase. Every feature, endpoint, data flow, and trust boundary is evaluated against the OWASP Top 10:2025 before shipping.
+
+- Apply the OWASP Top 10:2025 checklist to each change that:
+  - introduces or modifies authentication/authorization,
+  - touches data storage or transport,
+  - crosses trust boundaries (user ↔ server, server ↔ external API, etc.),
+  - processes untrusted input.
+- For any suspected or confirmed security issue, file a security case in `.cursor/security-cases/` using the `_TEMPLATE.md`.
+
+Reference: OWASP Top 10:2025 · OWASP Foundation.
+

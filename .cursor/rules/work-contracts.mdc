@@ -1,0 +1,39 @@
+---
+description: Contract-driven development — session-independent execution plans.
+alwaysApply: true
+---
+
+# Work Contracts
+
+When the user starts a non-trivial body of work, propose creating a contract in `.cursor/contracts/`.
+
+## Contract lifecycle
+
+1. Copy `.cursor/contracts/_TEMPLATE.md` to a new file named `{slug}.md`.
+2. Fill in Goal, Acceptance Criteria, Tasks. Status = `draft`.
+3. When work begins, set status to `active`.
+4. After each task (or batch), suggest committing. Format: `{what changed}\n\nContract: {slug} {step}/{total}`.
+5. The last three tasks are always: Validate → Tune → Validate.
+6. When acceptance criteria are met, set status to `complete`.
+7. Reusable learnings go into `notes/` or `rules/`.
+
+## Directory organization
+
+Flat `contracts/` works for the first ~10 contracts. As contracts accumulate, organize into lifecycle subdirectories:
+
+| Directory | Contents |
+|-----------|----------|
+| `active/` | Contracts currently being worked. |
+| `completed/` | Finished contracts, optionally grouped by phase (e.g., `completed/poc/`, `completed/mvp/`). |
+| `near-term/` | Next milestone — queued for work after the current active contracts. |
+| `future/` | Architectural vision — no implementation timeline. |
+
+Agent behavior: suggest creating subdirectories when `contracts/` contains more than ~10 files.
+
+## Rules
+
+- **Tests green before every commit.** No exceptions.
+- **Notes use `YYYY-MM-DD HH:MM` format.** Hour:minute precision required.
+- **Never edit `_TEMPLATE.md`.** Copy it.
+- **Update `.cursor/contracts/.index.mdc`** when adding or completing a contract.
+

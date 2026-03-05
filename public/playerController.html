@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Player Controller</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background: #111;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+      .wrapper {
+        text-align: center;
+      }
+      .name-input {
+        padding: 0.75rem 1rem;
+        border-radius: 999px;
+        border: none;
+        outline: none;
+        font-size: 1rem;
+        width: 70vw;
+        max-width: 320px;
+        text-align: center;
+      }
+      .primary-button {
+        padding: 0.6rem 1.6rem;
+        border-radius: 999px;
+        border: none;
+        background: #2196f3;
+        color: white;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .choices {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+      }
+      .choice-button {
+        padding: 1rem 1.5rem;
+        min-width: 90px;
+        border-radius: 999px;
+        border: none;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #fff;
+        cursor: pointer;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        transition: transform 0.05s ease, box-shadow 0.05s ease,
+          background 0.1s ease;
+      }
+      .choice-button:active {
+        transform: translateY(3px) scale(0.97);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      }
+      .choice-rock {
+        background: #ff7043;
+      }
+      .choice-paper {
+        background: #42a5f5;
+      }
+      .choice-scissors {
+        background: #ab47bc;
+      }
+      .status {
+        margin-top: 1.25rem;
+        color: #fafafa;
+        font-size: 1rem;
+        opacity: 0.9;
+        min-height: 1.25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div id="nameStep">
+        <input
+          id="playerName"
+          class="name-input"
+          type="text"
+          placeholder="Enter your name"
+          autocomplete="off"
+        />
+        <div style="margin-top: 0.75rem">
+          <button id="joinButton" class="primary-button">Join</button>
+        </div>
+      </div>
+
+      <div id="controlStep" style="display: none">
+        <div style="font-size: 1.1rem; margin-bottom: 1rem" id="greeting"></div>
+        <div>Choose your move:</div>
+        <div class="choices">
+          <button
+            id="rockButton"
+            class="choice-button choice-rock"
+            data-choice="rock"
+          >
+            Rock
+          </button>
+          <button
+            id="paperButton"
+            class="choice-button choice-paper"
+            data-choice="paper"
+          >
+            Paper
+          </button>
+          <button
+            id="scissorsButton"
+            class="choice-button choice-scissors"
+            data-choice="scissors"
+          >
+            Scissors
+          </button>
+        </div>
+        <div class="status" id="status"></div>
+      </div>
+    </div>
+    <script>
+      const nameStep = document.getElementById("nameStep");
+      const controlStep = document.getElementById("controlStep");
+      const nameInput = document.getElementById("playerName");
+      const joinButton = document.getElementById("joinButton");
+      const statusEl = document.getElementById("status");
+      const greetingEl = document.getElementById("greeting");
+      const choiceButtons = document.querySelectorAll(".choice-button");
+
+      let playerName = "";
+      let hasChosen = false;
+
+      function setStatus(message, color = "#fafafa") {
+        statusEl.textContent = message;
+        statusEl.style.color = color;
+      }
+
+      async function joinGame() {
+        const rawName = nameInput.value.trim();
+        if (!rawName) {
+          setStatus("Please enter a name to join.", "#ffb300");
+          return;
+        }
+
+        playerName = rawName;
+        setStatus("Joining...");
+
+        try {
+          const res = await fetch("/player-joined", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ name: playerName }),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.ok === false && data.error) {
+              setStatus(data.error, "#ff5252");
+              return;
+            }
+
+            nameStep.style.display = "none";
+            controlStep.style.display = "block";
+            greetingEl.textContent = `Welcome, ${playerName}.`;
+            setStatus("Make your choice.");
+          } else {
+            setStatus("Could not join. Try again.", "#ff5252");
+          }
+        } catch (e) {
+          setStatus("Network error while joining.", "#ff5252");
+        }
+      }
+
+      joinButton.addEventListener("click", joinGame);
+      nameInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          joinGame();
+        }
+      });
+
+      choiceButtons.forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!playerName) {
+            setStatus("Join first by entering your name.", "#ffb300");
+            return;
+          }
+          if (hasChosen) {
+            setStatus("You already chose. Waiting for opponent...", "#ffb300");
+            return;
+          }
+
+          const choice = btn.dataset.choice;
+          hasChosen = true;
+          setStatus(`You chose ${choice}. Waiting for opponent...`);
+
+          try {
+            const res = await fetch("/choice", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ name: playerName, choice }),
+            });
+
+            if (!res.ok) {
+              hasChosen = false;
+              setStatus("Server error. Try again.", "#ff5252");
+              return;
+            }
+
+            const data = await res.json();
+            if (data.ok === false && data.error) {
+              hasChosen = false;
+              setStatus(data.error, "#ff5252");
+              return;
+            }
+
+            if (data.result) {
+              // If the other player already chose, we might immediately get the result
+              setStatus(data.result);
+            }
+          } catch (e) {
+            hasChosen = false;
+            setStatus("Network error.", "#ff5252");
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
+

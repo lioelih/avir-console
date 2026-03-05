@@ -1,0 +1,19 @@
+# Index
+
+Purpose: agentic directory listing — locate guidance without re-scanning.
+
+## Directories
+- `rules/` — non-negotiable constraints and always-apply guidance.
+- `guide/` — software development workflows and process guidance.
+- `docs/` — deep library (long-form references).
+- `notes/` — short summaries and quick references.
+- `contracts/` — work contracts with state, tasks, and completion criteria.
+- `security-cases/` — security bug post-mortems with RCA, severity, and mitigation.
+- `glossary/` — domain terms and definitions.
+- `skills/` — project-specific skill definitions.
+
+## Files
+- `.index.mdc` — agentic directory listing (hidden).
+- `meta.mdc` — binding structure contract.
+- `kombucha.mdc` — FSC pre-prompt seed.
+

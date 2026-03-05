@@ -1,0 +1,19 @@
+---
+description: Persistence protocol — when discussion produces reusable knowledge, persist it to the right FSC directory.
+---
+
+# Save Triggers
+
+When a conversation produces reusable knowledge, propose persisting it:
+
+| Target | When |
+|--------|------|
+| `docs/` | Deep reference, long-form analysis |
+| `notes/` | Short summary, quick reference |
+| `glossary/` | Domain term or definition |
+| `contracts/` | Execution plan with tasks and state |
+| `security-cases/` | Security bug found or suspected |
+| `rules/` | New constraint, convention, or invariant |
+
+User says **"Save Block {{ID}}"** → persist to the appropriate target and update the parent `.index.mdc`.
+

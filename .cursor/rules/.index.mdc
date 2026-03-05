@@ -1,0 +1,13 @@
+# Index
+
+Purpose: agentic directory listing — locate guidance without re-scanning.
+
+## Directories
+
+## Files
+- `.index.mdc` — agentic directory listing (hidden).
+- `test-matrix.mdc` — TDD test matrix and ROGBY cycle.
+- `work-contracts.mdc` — contract-driven development rules and lifecycle.
+- `security-analysis.mdc` — always-apply OWASP Top 10:2025 security checklist.
+- `save-triggers.mdc` — when to persist discussion into FSC artifacts.
+

@@ -1,0 +1,13 @@
+# Index
+
+Purpose: agentic directory listing — locate guidance without re-scanning.
+
+## Directories
+- `bootstrap/` — skill to create/verify .cursor structure.
+- `index-integrity/` — skill to validate and repair .index.mdc files.
+- `onboarding/` — skill to explain project purpose and structure.
+- `survey/` — skill to scan repo and extract domain knowledge.
+
+## Files
+- `.index.mdc` — agentic directory listing (hidden).
+

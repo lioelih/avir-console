@@ -1,0 +1,11 @@
+# Index
+
+Purpose: agentic directory listing — locate guidance without re-scanning.
+
+## Directories
+
+## Files
+- `.index.mdc` — agentic directory listing (hidden).
+- `_TEMPLATE.md` — contract template for new work contracts.
+- `e2e-mocks-poc.md` — contract for building end-to-end mocks for core services.
+
