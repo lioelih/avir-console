@@ -1,6 +1,6 @@
 # E2E Mocks for PoC Services
 
-**Status:** draft  
+**Status:** complete  
 **Goal:** A basic end-to-end test harness using mocks for Distribution, Lobby, Execution, and Controllers is in place and can run a simulated game flow without real emulators or phones.
 
 ## Contract Rules
@@ -29,33 +29,34 @@ Keep mocks minimal but wired together end-to-end so they can be used as a regres
 
 ## Tasks
 
-- [ ] Design mock message flows for one happy-path room:
+- [x] Design mock message flows for one happy-path room:
       - Host creates lobby,
       - P1 and P2 join as controllers,
       - Host selects a SNES game,
       - Execution mock receives and logs input events.
-- [ ] Implement in-memory mock Distribution:
+      - See `.cursor/notes/e2e-mock-message-flow.md`.
+- [x] Implement in-memory mock Distribution:
       - Hard-coded catalog with 1–2 SNES games,
       - Simple "create lobby" that returns a room id and mock lobby endpoint.
-- [ ] Implement mock Lobby:
+- [x] Implement mock Lobby:
       - In-memory `Room` and `Player` model,
       - Handlers for `joinLobby`, `lobbyState`, `selectGame`, `gameStarting`,
       - No real emulator start, just a fake call to Execution mock.
-- [ ] Implement mock Execution:
+- [x] Implement mock Execution:
       - Accepts `startGameSession` and `input` events,
       - Logs input per player/slot and basic "gameState",
       - No real rendering, just console/log output.
-- [ ] Implement mock Controllers:
+- [x] Implement mock Controllers:
       - A simple script/page that:
         - simulates 2 players joining,
         - sends a scripted sequence of `input` events (e.g., press A, move D-pad).
-- [ ] Wire everything into a single "mock e2e run" script:
+- [x] Wire everything into a single "mock e2e run" script:
       - Starts Distribution/Lobby/Execution mocks in one process,
       - Runs the scripted controller sequence,
       - Verifies expected logs/states are produced.
-- [ ] Validate (green)
-- [ ] Tune (blue)
-- [ ] Validate (green)
+- [x] Validate (green)
+- [x] Tune (blue) — timestamp and load-time logging added for latency/load measurement.
+- [x] Validate (green)
 
 ## Test Matrix
 
@@ -82,5 +83,8 @@ For this contract, explicitly choose which layers from the global Test Matrix ar
 
 ## Notes
 
-{YYYY-MM-DD HH:MM} — Contract created.
+2025-03-10 — Contract created.  
+2025-03-10 — Contract activated; Task 1 done: happy-path message flow designed in `.cursor/notes/e2e-mock-message-flow.md`.  
+2025-03-10 — Implementation complete: `e2e-mocks/` (execution-mock, lobby-mock, distribution-mock, controller-script, run-e2e.js); `npm run run-e2e-mocks` passes.  
+2025-03-12 — Tune: timestamp logging (clientTime, Lobby/Execution T=, delta ms) and load-time hook (notifyLoadComplete); Validate passed. Contract complete.
 
