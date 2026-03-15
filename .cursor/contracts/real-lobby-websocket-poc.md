@@ -1,6 +1,6 @@
 # Real Lobby Server and WebSocket API (PoC)
 
-**Status:** draft  
+**Status:** active  
 **Goal:** A real Lobby server runs locally, accepts WebSocket connections, and handles the same message contracts (joinLobby, lobbyJoinAck, lobbyState, selectGame, gameStarting) as the mocks, so real controller and lobby UIs can connect over the network.
 
 ## Contract Rules
@@ -25,12 +25,12 @@ Global rules only.
 
 ## Tasks
 
-- [ ] Define real Lobby server entry point (e.g. `src/lobby-server.js` or `server/lobby.js`) and port config.
-- [ ] Implement WebSocket server (e.g. `ws` package) that accepts connections and parses JSON messages by `type`.
-- [ ] Implement joinLobby handler: create room if needed, assign slot/role, return lobbyJoinAck and broadcast lobbyState to all clients in the room.
-- [ ] Implement selectGame handler (Host only): transition room to executing, call Execution stub (mock) startGameSession, broadcast gameStarting.
-- [ ] (Optional) Implement input forwarding: when room is executing, forward `input` messages to Execution stub and log (for latency visibility).
-- [ ] Optional: add minimal controller page (static) that connects via WebSocket, joins with a name, shows ack and state.
+- [x] Define real Lobby server entry point (e.g. `src/lobby-server.js` or `server/lobby.js`) and port config.
+- [x] Implement WebSocket server (e.g. `ws` package) that accepts connections and parses JSON messages by `type`.
+- [x] Implement joinLobby handler: create room if needed, assign slot/role, return lobbyJoinAck and broadcast lobbyState to all clients in the room.
+- [x] Implement selectGame handler (Host only): transition room to executing, call Execution stub (mock) startGameSession, broadcast gameStarting.
+- [x] (Optional) Implement input forwarding: when room is executing, forward `input` messages to Execution stub and log (for latency visibility).
+- [x] Optional: add minimal controller page (static) that connects via WebSocket, joins with a name, shows ack and state.
 - [ ] Validate: run mock E2E (green); run real server and manually or scripted connect a client, join, select game, verify messages.
 - [ ] Tune (blue)
 - [ ] Validate (green)
@@ -54,4 +54,7 @@ Global rules only.
 
 ## Notes
 
-2025-03-12 — Contract created; first slice of real project after E2E mocks complete.
+2025-03-12 — Contract created; first slice of real project after E2E mocks complete.  
+2025-03-12 — Activated. Removed old RPS code (server.js, public/enterScreen.html, public/playerController.html). Added src/lobby-server.js (HTTP: GET /health, POST /api/rooms; WebSocket /ws: joinLobby, selectGame, input). Reuses e2e-mocks lobby + execution. npm run start:lobby; npm run run-e2e-mocks still passes.  
+2025-03-12 — Minimal controller page: public/controller.html (create room, enter name, join via WebSocket, show lobbyJoinAck and lobbyState). Server serves static public/ and GET / → controller.html.  
+2025-03-12 — Lobby (host) vs Controller (phone) flow: GET / → lobby.html (create room, QR code via GET /api/qr?url=…, join link, player list, Start game). GET /controller → controller.html (room from ?room=, name + join, then gamepad UI: D-pad, A/B, Start/Select, L/R; sends input with clientTime). Added qrcode dependency for server-side QR.

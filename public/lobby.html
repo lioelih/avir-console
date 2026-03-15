@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Avir Console — Lobby</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; max-width: 520px; margin: 1rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.35rem; }
+    .card { background: #f0f0f0; border-radius: 10px; padding: 1.25rem; margin-top: 1rem; }
+    button { cursor: pointer; background: #333; color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1rem; font-size: 1rem; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #joinUrl { width: 100%; padding: 0.5rem; margin-top: 0.5rem; font-size: 0.85rem; }
+    #qr { margin-top: 0.75rem; display: block; border-radius: 8px; }
+    #players { list-style: none; padding: 0; margin: 0.5rem 0 0; }
+    #players li { padding: 0.4rem 0; border-bottom: 1px solid #ddd; }
+    #players li:last-child { border-bottom: none; }
+    .status { margin-top: 0.5rem; font-size: 0.9rem; color: #666; }
+    .error { color: #c00; }
+    .success { color: #060; }
+    .start-row { margin-top: 1rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    select { padding: 0.5rem; font-size: 1rem; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Avir Console — Lobby</h1>
+  <p class="status" id="status">Create a room. First player to join becomes the host.</p>
+
+  <div class="card" id="createCard">
+    <button type="button" id="createBtn">Create room</button>
+  </div>
+
+  <div class="card" id="roomCard" style="display:none;">
+    <strong>Players: scan this QR or open the link</strong>
+    <input type="text" id="joinUrl" readonly aria-label="Join URL">
+    <img id="qr" alt="QR code to join" width="200" height="200">
+    <p style="margin-top:0.75rem; font-size:0.9rem;">Players in lobby:</p>
+    <ul id="players"></ul>
+    <div class="start-row">
+      <select id="gameSelect">
+        <option value="snes-mario-world">Super Mario World</option>
+        <option value="snes-kirby">Kirby Super Star</option>
+      </select>
+      <button type="button" id="startGameBtn">Start game</button>
+    </div>
+  </div>
+
+  <script>
+    const apiUrl = window.location.origin;
+
+    const createCard = document.getElementById('createCard');
+    const roomCard = document.getElementById('roomCard');
+    const createBtn = document.getElementById('createBtn');
+    const joinUrlEl = document.getElementById('joinUrl');
+    const qrEl = document.getElementById('qr');
+    const playersEl = document.getElementById('players');
+    const gameSelect = document.getElementById('gameSelect');
+    const startGameBtn = document.getElementById('startGameBtn');
+    const statusEl = document.getElementById('status');
+
+    let roomId = null;
+    let pollInterval = null;
+
+    function setStatus(msg, isError) {
+      statusEl.textContent = msg;
+      statusEl.className = 'status ' + (isError ? 'error' : 'success');
+    }
+
+    function renderPlayers(players) {
+      playersEl.innerHTML = (players || []).map(p => `<li>P${p.slot} ${p.name} (${p.role})</li>`).join('') || '<li>Waiting for players…</li>';
+    }
+
+    async function fetchRoomState() {
+      if (!roomId) return;
+      try {
+        const res = await fetch(apiUrl + '/api/rooms/' + encodeURIComponent(roomId) + '/state');
+        if (!res.ok) return;
+        const data = await res.json();
+        renderPlayers(data.players);
+      } catch (_) {}
+    }
+
+    createBtn.addEventListener('click', async () => {
+      createBtn.disabled = true;
+      setStatus('Creating room…');
+      try {
+        const [roomRes, hostRes] = await Promise.all([
+          fetch(apiUrl + '/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }),
+          fetch(apiUrl + '/api/host')
+        ]);
+        const roomData = await roomRes.json();
+        const hostData = await hostRes.json();
+        if (!roomRes.ok) throw new Error(roomData.error || roomRes.status);
+        roomId = roomData.roomId;
+        const host = hostData.host || 'localhost';
+        const port = hostData.port || 3001;
+        const joinUrl = 'http://' + host + ':' + port + '/controller?room=' + encodeURIComponent(roomId);
+        joinUrlEl.value = joinUrl;
+        qrEl.src = apiUrl + '/api/qr?url=' + encodeURIComponent(joinUrl);
+        createCard.style.display = 'none';
+        roomCard.style.display = 'block';
+        setStatus('Room created. First player to join is the host.');
+        pollInterval = setInterval(fetchRoomState, 1500);
+        fetchRoomState();
+      } catch (e) {
+        setStatus('Failed: ' + e.message, true);
+      }
+      createBtn.disabled = false;
+    });
+
+    startGameBtn.addEventListener('click', async () => {
+      if (!roomId) return;
+      const gameId = gameSelect.value;
+      try {
+        const res = await fetch(apiUrl + '/api/rooms/' + encodeURIComponent(roomId) + '/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gameId })
+        });
+        const data = await res.json();
+        if (!res.ok) setStatus('Start failed: ' + (data.error || res.status), true);
+        else setStatus('Game starting: ' + (data.gameId || gameId));
+      } catch (e) {
+        setStatus('Failed: ' + e.message, true);
+      }
+    });
+  </script>
+</body>
+</html>

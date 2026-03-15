@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Avir Console — Controller</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; padding: 0; background: #1a1a1a; color: #ddd; font-family: system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+    .join-screen { max-width: 320px; margin: 2rem auto; text-align: center; padding: 0 1rem; }
+    .join-screen h1 { font-size: 1.15rem; font-weight: 600; }
+    .join-screen input { width: 100%; padding: 0.75rem; margin: 0.5rem 0; font-size: 1rem; border-radius: 8px; border: 2px solid #333; background: #222; color: #fff; }
+    .join-screen button { width: 100%; padding: 0.85rem; margin-top: 0.5rem; font-size: 1rem; background: #2d6a2d; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    .join-screen .hint { font-size: 0.85rem; color: #888; margin-top: 1rem; }
+    .join-screen .error { color: #e66; }
+    .gamepad-screen { display: none; width: 100%; max-width: 420px; padding: 1rem 0.5rem; }
+    .gamepad-screen.visible { display: block; }
+    .slot-status { text-align: center; font-size: 0.85rem; color: #6a6; margin-bottom: 0.75rem; }
+    .slot-status.error { color: #e66; }
+
+    /* SNES controller body — wide, rounded rectangle, slight taper */
+    .controller {
+      background: linear-gradient(180deg, #4a4540 0%, #3d3935 15%, #36322e 50%, #322e2a 100%);
+      border-radius: 18px 18px 28px 28px;
+      padding: 14px 20px 22px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6), 0 2px 0 rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.06);
+      border: 3px solid #2a2622;
+      width: 100%;
+      max-width: 380px;
+    }
+
+    /* L and R — SNES has rounded bumps at top corners */
+    .shoulders { display: flex; justify-content: space-between; margin-bottom: 10px; padding: 0 4px; }
+    .shoulder {
+      width: 56px; height: 22px;
+      border-radius: 12px 12px 0 0;
+      background: linear-gradient(180deg, #4a4540 0%, #3d3935 60%, #322e2a 100%);
+      border: 2px solid #2a2622;
+      border-bottom: none;
+      box-shadow: inset 0 2px 4px rgba(255,255,255,0.06);
+      color: #6a6560;
+      font-size: 0.65rem;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: manipulation; cursor: pointer; user-select: none;
+    }
+    .shoulder:active { background: #3d3935; }
+
+    /* One row: D-pad | Start/Select | Face (B,Y,X,A) */
+    .main-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 100px; }
+    .dpad-wrap { flex-shrink: 0; }
+    .start-select { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
+    .face-wrap { flex-shrink: 0; }
+
+    /* D-pad — SNES style: one convex cross, we fake with 4 tight buttons */
+    .dpad {
+      width: 88px; height: 88px;
+      display: grid;
+      grid-template: 1fr 1fr 1fr / 1fr 1fr 1fr;
+      gap: 3px;
+      align-items: center; justify-items: center;
+      background: #2a2622;
+      border-radius: 8px;
+      padding: 6px;
+      box-shadow: inset 0 3px 8px rgba(0,0,0,0.5);
+    }
+    .dpad .btn {
+      width: 28px; height: 28px;
+      background: linear-gradient(160deg, #5a5550 0%, #45403c 50%, #3a3632 100%);
+      border: none;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12);
+      color: #4a4540;
+      font-size: 0.7rem;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: manipulation; cursor: pointer; user-select: none;
+    }
+    .dpad .btn:active { background: #4a4540; box-shadow: inset 0 2px 6px rgba(0,0,0,0.5); }
+    .dpad .btn.empty { background: transparent; box-shadow: none; cursor: default; pointer-events: none; }
+    .dpad .btn.up { grid-column: 2; grid-row: 1; }
+    .dpad .btn.down { grid-column: 2; grid-row: 3; }
+    .dpad .btn.left { grid-column: 1; grid-row: 2; }
+    .dpad .btn.right { grid-column: 3; grid-row: 2; }
+
+    /* Start / Select — oval, gray */
+    .start-select .btn {
+      width: 36px; height: 16px;
+      background: linear-gradient(180deg, #5a5550 0%, #45403c 100%);
+      border: 2px solid #2a2622;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+      color: #6a6560;
+      font-size: 0.55rem;
+      font-weight: bold;
+      touch-action: manipulation; cursor: pointer; user-select: none;
+    }
+    .start-select .btn:active { background: #4a4540; }
+
+    /* Face: 4 buttons in SNES arrangement — Y top-left, X top-right, B bottom-left, A bottom-right (diamond/curve) */
+    .face {
+      display: grid;
+      grid-template: 1fr 1fr / 1fr 1fr;
+      gap: 10px 14px;
+      align-items: center;
+      justify-items: center;
+    }
+    .face .btn {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      border: 3px solid rgba(0,0,0,0.4);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: bold;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: manipulation; cursor: pointer; user-select: none;
+    }
+    .face .btn:active { transform: scale(0.92); box-shadow: inset 0 2px 8px rgba(0,0,0,0.4); }
+    /* SNES US: lavender; Super Famicom: colored — using colored for clarity */
+    .face .btn.y { background: linear-gradient(145deg, #d4a84b 0%, #b88b2e 100%); }
+    .face .btn.x { background: linear-gradient(145deg, #4a7ab8 0%, #2e5a8a 100%); }
+    .face .btn.b { background: linear-gradient(145deg, #3a9a4a 0%, #2a7a36 100%); }
+    .face .btn.a { background: linear-gradient(145deg, #c43c3c 0%, #9a2828 100%); }
+  </style>
+</head>
+<body>
+  <div class="join-screen" id="joinScreen">
+    <h1>Avir Console — Controller</h1>
+    <p id="noRoomHint" class="hint error" style="display:none;">No room in URL. Scan the QR code on the host's screen or use the link they share.</p>
+    <input type="text" id="playerName" placeholder="Your name" maxlength="32" autocomplete="off">
+    <button type="button" id="joinBtn">Join lobby</button>
+    <p class="hint">First player to join becomes the host.</p>
+  </div>
+
+  <div class="gamepad-screen" id="gamepadScreen">
+    <p class="slot-status" id="slotStatus"></p>
+    <div class="controller">
+      <div class="shoulders">
+        <button type="button" class="shoulder" data-control="L">L</button>
+        <button type="button" class="shoulder" data-control="R">R</button>
+      </div>
+      <div class="main-row">
+        <div class="dpad-wrap">
+          <div class="dpad">
+            <span class="btn empty"></span>
+            <button type="button" class="btn up" data-control="DPadUp">▲</button>
+            <span class="btn empty"></span>
+            <button type="button" class="btn left" data-control="DPadLeft">◀</button>
+            <span class="btn empty"></span>
+            <button type="button" class="btn right" data-control="DPadRight">▶</button>
+            <span class="btn empty"></span>
+            <button type="button" class="btn down" data-control="DPadDown">▼</button>
+            <span class="btn empty"></span>
+          </div>
+        </div>
+        <div class="start-select">
+          <button type="button" class="btn" data-control="Select">SELECT</button>
+          <button type="button" class="btn" data-control="Start">START</button>
+        </div>
+        <div class="face-wrap">
+          <div class="face">
+            <button type="button" class="btn y" data-control="Y">Y</button>
+            <button type="button" class="btn x" data-control="X">X</button>
+            <button type="button" class="btn b" data-control="B">B</button>
+            <button type="button" class="btn a" data-control="A">A</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const roomIdFromUrl = params.get('room');
+    const wsUrl = window.location.origin.replace(/^http/, 'ws') + '/ws';
+
+    const joinScreen = document.getElementById('joinScreen');
+    const gamepadScreen = document.getElementById('gamepadScreen');
+    const noRoomHint = document.getElementById('noRoomHint');
+    const playerNameEl = document.getElementById('playerName');
+    const joinBtn = document.getElementById('joinBtn');
+    const slotStatusEl = document.getElementById('slotStatus');
+
+    let ws = null;
+    let roomId = null;
+    let playerId = null;
+    let slot = null;
+    let role = null;
+
+    if (!roomIdFromUrl) noRoomHint.style.display = 'block';
+
+    function sendInput(control, action) {
+      if (!ws || ws.readyState !== 1 || !roomId || !playerId || slot == null) return;
+      ws.send(JSON.stringify({ type: 'input', roomId, playerId, slot, control, action, value: null, clientTime: Date.now() }));
+    }
+
+    joinBtn.addEventListener('click', () => {
+      if (!roomIdFromUrl) return;
+      const name = playerNameEl.value.trim();
+      if (!name) return;
+      roomId = roomIdFromUrl;
+      joinBtn.disabled = true;
+      ws = new WebSocket(wsUrl);
+      ws.onopen = () => ws.send(JSON.stringify({ type: 'joinLobby', roomId, name, reconnectToken: null }));
+      ws.onmessage = (ev) => {
+        const data = JSON.parse(ev.data);
+        if (data.type === 'lobbyJoinAck') {
+          if (data.error) {
+            slotStatusEl.textContent = 'Error: ' + data.error;
+            slotStatusEl.className = 'slot-status error';
+            joinBtn.disabled = false;
+            return;
+          }
+          playerId = data.playerId;
+          slot = data.slot;
+          role = data.role;
+          joinScreen.style.display = 'none';
+          gamepadScreen.classList.add('visible');
+          slotStatusEl.textContent = 'P' + slot + ' — ' + role;
+          slotStatusEl.className = 'slot-status';
+        }
+        if (data.type === 'gameStarting') slotStatusEl.textContent = 'P' + slot + ' — Game starting!';
+      };
+      ws.onerror = () => { joinBtn.disabled = false; };
+      ws.onclose = () => { if (document.body.contains(joinScreen)) joinBtn.disabled = false; };
+    });
+
+    function bindButton(el, control) {
+      const onDown = (e) => { e.preventDefault(); sendInput(control, 'down'); };
+      const onUp = (e) => { e.preventDefault(); sendInput(control, 'up'); };
+      el.addEventListener('mousedown', onDown);
+      el.addEventListener('mouseup', onUp);
+      el.addEventListener('mouseleave', onUp);
+      el.addEventListener('touchstart', onDown, { passive: false });
+      el.addEventListener('touchend', onUp, { passive: false });
+      el.addEventListener('touchcancel', onUp, { passive: false });
+    }
+    document.querySelectorAll('.controller [data-control]').forEach(btn => bindButton(btn, btn.dataset.control));
+  </script>
+</body>
+</html>
