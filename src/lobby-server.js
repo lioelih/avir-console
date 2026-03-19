@@ -3,8 +3,10 @@
  * Reuses lobby and execution mocks for room/player logic; Execution is a stub (logs only).
  */
 
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execSync } = require('child_process');
 const express = require('express');
 const QRCode = require('qrcode');
 const { WebSocketServer } = require('ws');
@@ -78,19 +80,108 @@ app.get('/api/qr', async (req, res) => {
   }
 });
 
-function getLanHost() {
+/** Cache so we do not call PowerShell on every poll (lobby refreshes /api/host). */
+let publicHostCache = { value: null, at: 0 };
+const PUBLIC_HOST_CACHE_MS = 60_000;
+
+function isWsl() {
+  try {
+    const v = fs.readFileSync('/proc/version', 'utf8').toLowerCase();
+    return v.includes('microsoft') || v.includes('wsl');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * On WSL2, Linux only sees a virtual 172.x address — phones need the *Windows* LAN IP.
+ *
+ * We ask Windows for all candidate IPv4s (excluding loopback, link-local, and WSL/virtual adapters),
+ * then pick the best in Node:
+ * - prefer `10.x` (highest)
+ * - then `192.168.x`
+ * - then `172.16–31.x`
+ */
+function getWindowsLanIpSync() {
+  const ps =
+    "Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' -and $_.InterfaceAlias -notmatch 'Loopback|vEthernet \\(WSL\\)|Bluetooth' } | ForEach-Object { $_.IPAddress }";
+  const ipv4Re = /^\d{1,3}(\.\d{1,3}){3}$/;
+
+  function score(ip) {
+    if (ip.startsWith('10.')) return 100;
+    if (ip.startsWith('192.168.')) return 90;
+    if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip)) return 40;
+    return 10;
+  }
+
+  try {
+    const out = execSync(`powershell.exe -NoProfile -NonInteractive -Command "${ps}"`, {
+      encoding: 'utf8',
+      timeout: 10000,
+      windowsHide: true,
+    });
+
+    const candidates = out
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter((s) => ipv4Re.test(s));
+
+    const unique = [...new Set(candidates)];
+    if (unique.length === 0) return null;
+
+    unique.sort((a, b) => score(b) - score(a));
+    return unique[0];
+  } catch {
+    return null;
+  }
+}
+
+function pickBestLocalIp() {
   const ifaces = os.networkInterfaces();
+  const candidates = [];
   for (const name of Object.keys(ifaces)) {
     for (const iface of ifaces[name]) {
-      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+      if (iface.family !== 'IPv4' || iface.internal) continue;
+      const a = iface.address;
+      if (a.startsWith('169.254.')) continue;
+      candidates.push(a);
     }
   }
-  return null;
+  function score(ip) {
+    if (ip.startsWith('10.')) return 100;
+    if (ip.startsWith('192.168.')) return 90;
+    if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip)) return 40;
+    return 10;
+  }
+  candidates.sort((a, b) => score(b) - score(a));
+  return candidates.length ? candidates[0] : null;
+}
+
+/**
+ * Address phones should use (same Wi‑Fi / LAN).
+ * 1) AVIR_PUBLIC_HOST — you set once if auto-detect is wrong
+ * 2) WSL2 — ask Windows for a real adapter IP (e.g. 10.x, 192.168.x)
+ * 3) Native Node — pick best non-loopback IPv4 (prefer 10/192.168)
+ */
+function getPublicHost() {
+  const envHost = process.env.AVIR_PUBLIC_HOST?.trim();
+  if (envHost) return envHost;
+
+  const now = Date.now();
+  if (publicHostCache.value && now - publicHostCache.at < PUBLIC_HOST_CACHE_MS) {
+    return publicHostCache.value;
+  }
+
+  let host = null;
+  if (isWsl()) host = getWindowsLanIpSync();
+  if (!host) host = pickBestLocalIp();
+  host = host || 'localhost';
+  publicHostCache = { value: host, at: now };
+  return host;
 }
 
 app.get('/api/host', (req, res) => {
-  const host = getLanHost();
-  res.json({ host: host || 'localhost', port: PORT });
+  res.json({ host: getPublicHost(), port: PORT });
 });
 
 app.post('/api/rooms', (req, res) => {
@@ -123,8 +214,10 @@ app.post('/api/rooms/:roomId/start', (req, res) => {
   res.json({ ok: true, gameId: result.gameId });
 });
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
+  const pub = getPublicHost();
   console.log(`Lobby server listening on http://localhost:${PORT}`);
+  console.log(`Join URL base for phones: http://${pub}:${PORT}  (override with AVIR_PUBLIC_HOST if wrong)`);
 });
 
 const wss = new WebSocketServer({ server, path: '/ws' });
